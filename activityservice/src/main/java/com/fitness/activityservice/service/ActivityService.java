@@ -18,6 +18,10 @@ public class ActivityService {
 
     private final ActivityRepository activityRepository;
     private final UserValidationService userValidationService;
+    private final KafkaTemplate<String, Activity> kafkaTemplate;
+
+    @Value("${kafka.topic.name}")
+    private String topicName;
 
     public ActivityResponse trackActivity(ActivityRequest request) {
 
@@ -36,9 +40,14 @@ public class ActivityService {
                 .additionalMetrics(request.getAdditionalMetrics())
                 .build();
 
-        System.out.println(activity.toString());
-
         Activity savedActivity = activityRepository.save(activity);
+
+        try {
+            kafkaTemplate.send(topicName, savedActivity.getUserId(), savedActivity);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
 
         return mapToResponse(savedActivity);
     }
@@ -57,6 +66,7 @@ public class ActivityService {
         return response;
 
     }
+
 
     public List<ActivityResponse> getUserActivities(String userId) {
         List<Activity> activityList = activityRepository.findByUserId(userId);
