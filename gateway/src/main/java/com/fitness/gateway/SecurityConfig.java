@@ -21,7 +21,11 @@ public class SecurityConfig {
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .authorizeExchange(exchange -> exchange.anyExchange().authenticated())
+                .cors(Customizer.withDefaults())
+                .authorizeExchange(exchanges -> exchanges
+                        .pathMatchers("/api/auth/**").permitAll()
+                        .anyExchange().authenticated()
+                )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .build();
     }

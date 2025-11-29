@@ -18,7 +18,7 @@ public class RecommendationController {
     private final RecommendationService recommendationService;
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Recommendation>> getUserRecommendation(@PathVariable String userId) {
+    public ResponseEntity<Recommendation> getUserCombinedRecommendation(@PathVariable String userId) {
         return ResponseEntity.ok(recommendationService.getUserRecommendation(userId));
     }
 

@@ -3,25 +3,22 @@ package com.fitness.aiservice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fitness.aiservice.model.Activity;
+import com.fitness.aiservice.model.ActivityType;
 import com.fitness.aiservice.model.Recommendation;
 import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Service
 @Slf4j
 @AllArgsConstructor
 public class ActivityAIService {
     private final GeminiService geminiService;
+
+    private final ObjectMapper objectMapper;
 
     public Recommendation generateRecommendation(Activity activity) {
         String prompt = createPromptForActivity(activity);
@@ -186,4 +183,95 @@ public class ActivityAIService {
                 activity.getAdditionalMetrics()
         );
     }
+
+    public Recommendation generateUserCombinedRecommendation(String userId, List<Recommendation> recs) {
+        try {
+            String existingRecsJson = objectMapper.writeValueAsString(recs);
+
+            String prompt = createPromptForUserFromRecommendations(userId, existingRecsJson);
+            String aiResponse = geminiService.getRecommendations(prompt);
+            log.info("USER-LEVEL RESPONSE FROM AI: {}", aiResponse);
+
+            // Use dummy activity just to reuse processAIResponse()
+            Activity dummy = new Activity();
+            dummy.setId(null);
+            dummy.setUserId(userId);
+            dummy.setType(ActivityType.OTHER);
+            dummy.setDuration(null);
+            dummy.setCaloriesBurned(null);
+            dummy.setAdditionalMetrics(Map.of("recommendationsCount", recs.size()));
+
+            Recommendation combined = processAIResponse(dummy, aiResponse);
+            combined.setType("USER_SUMMARY");   // mark it as a combined one
+            return combined;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Fallback if AI fails
+            return Recommendation.builder()
+                    .userId(userId)
+                    .type("USER_SUMMARY")
+                    .recommendation("Unable to generate combined recommendation from existing records.")
+                    .improvements(Collections.singletonList("Review individual activity recommendations."))
+                    .suggestions(Collections.singletonList("Continue tracking workouts and recommendations."))
+                    .safety(Arrays.asList(
+                            "Warm up properly",
+                            "Stay hydrated",
+                            "Listen to your body"
+                    ))
+                    .createdAt(LocalDateTime.now())
+                    .build();
+        }
+    }
+
+    private String createPromptForUserFromRecommendations(String userId, String recsJsonArray) {
+        return String.format("""
+        You are an expert fitness coach.
+
+        Below is the FULL list of activity-level recommendations for a user.
+        Each item already contains:
+        - activity type
+        - detailed recommendation text
+        - improvements
+        - suggestions
+        - safety tips
+
+        USER ID: %s
+
+        ACTIVITY-LEVEL RECOMMENDATIONS (JSON ARRAY):
+        %s
+
+        Using ALL of the information above, create ONE combined recommendation for this user.
+
+        Return the result in the EXACT JSON format below (NO extra text, NO markdown):
+
+        {
+          "analysis": {
+            "overall": "Overall analysis for the user",
+            "pace": "Overall comments on user's pace across activities",
+            "heartRate": "Overall comments on heart rate / intensity consistency",
+            "caloriesBurned": "Overall comments on calorie burn patterns"
+          },
+          "improvements": [
+            {
+              "area": "Key area to improve (e.g., Intensity, Consistency, Data Tracking)",
+              "recommendation": "Detailed combined recommendation for this area"
+            }
+          ],
+          "suggestions": [
+            {
+              "workout": "Suggested workout type",
+              "description": "Detailed description of what the user should do"
+            }
+          ],
+          "safety": [
+            "Important global safety guideline for this user",
+            "Another key safety point"
+          ]
+        }
+
+        Focus on patterns across ALL activities (e.g., low intensity, poor tracking, consistency).
+        """, userId, recsJsonArray);
+    }
+
+
 }

@@ -51,7 +51,7 @@ public class UserService {
     }
 
     public UserResponse getUserProfile(String userId) {
-        User user = repository.findById(userId)
+        User user = repository.findByKeycloakId(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         UserResponse userResponse = new UserResponse();
         userResponse.setId(user.getId());

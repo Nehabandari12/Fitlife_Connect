@@ -11,9 +11,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RecommendationService {
     private final RecommendationRepository recommendationRepository;
+    private final ActivityAIService activityAIService;
 
-    public List<Recommendation> getUserRecommendation(String userId) {
-        return recommendationRepository.findByUserId(userId);
+    public Recommendation getUserRecommendation(String userId) {
+        List<Recommendation> recs = recommendationRepository.findByUserId(userId);
+
+        if (recs == null || recs.isEmpty()) {
+            throw new RuntimeException("No recommendations found for user: " + userId);
+        }
+
+        return activityAIService.generateUserCombinedRecommendation(userId, recs);
     }
 
     public Recommendation getActivityRecommendation(String activityId) {
