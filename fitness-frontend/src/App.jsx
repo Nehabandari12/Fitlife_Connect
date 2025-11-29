@@ -1,59 +1,94 @@
-// import './App.css'
-import { Box, Button } from "@mui/material"
-import { useContext, useEffect, useState } from "react"
+import { useContext, useEffect } from "react"
 import { AuthContext } from "react-oauth2-code-pkce"
 import { useDispatch } from "react-redux";
-import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from "react-router"
+import { BrowserRouter as Router, Navigate, Route, Routes, useNavigate } from "react-router"
 import { logout, setCredentials } from "./store/authSlice";
 import ActivityForm from "./components/ActivityForm";
 import ActivityList from "./components/ActivityList";
 import ActivityDetail from "./components/ActivityDetail";
+import AllActivities from "./components/AllActivities";
+import Navbar from "./components/Navbar";
+import CompleteRecommendation from "./components/CompleteRecommendation";
 
-const ActivitiesPage = () => {
+const HomePage = ({ isAuthenticated }) => {
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4 text-white">Welcome to Fitness Freak!</h1>
+          <p className="text-xl text-gray-300">Please login to continue</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Box sx={{ p: 2, border: '1px dashed grey' }}>
-      <ActivityForm onActivityAdded = { () => window.location.reload()}/>
-      <ActivityList />
-    </Box>
+    <div className="min-h-screen bg-gray-900 py-8 px-4">
+      <div className="max-w-6xl mx-auto bg-gray-800/50 rounded-2xl border border-gray-700 p-8 shadow-2xl">
+        <h1 className="text-4xl font-bold text-white mb-8">Track Your Activities</h1>
+        <ActivityForm onActivityAdded={() => window.location.reload()}/>
+        <ActivityList limit={3} showSeeMore={true} />
+      </div>
+    </div>
   );
 }
 
 function App() {
-  
-  const { token, tokenData, logIn, logOut, isAuthenticated } 
-      = useContext(AuthContext);
+  const { token, tokenData, logIn, logOut } = useContext(AuthContext);
   const dispatch = useDispatch();
-  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     if (token) {
       dispatch(setCredentials({token, user: tokenData}));
-      setAuthReady(true);
     }
   }, [token, tokenData, dispatch]);
 
+  const handleLogin = () => {
+    console.log("Login button clicked");
+    logIn();
+  };
+
+  const handleLogout = () => {
+    console.log("Logout button clicked");
+    dispatch(logout());
+    logOut();
+  };
+
   return (
     <Router>
-      {!token ? (
-        <Button variant="contained"
-          onClick={() => {logIn();}}>
-          LOGIN
-        </Button>
-      ) : (
-        <div>
-         <Box component="section" sx={{ p: 2, border: '1px dashed grey' }}>
-          <Button variant="contained" onClick={logout} >
-            LOGOUT  
-          </Button>
-          <Routes>
-            <Route path="/activities" element={<ActivitiesPage />}/>
-            <Route path="/activities/:id" element={<ActivityDetail />}/>
-            <Route path="/" element={token ? <Navigate to="/activities" replace/> :
-                                  <div>Welcome! Please login</div>}/>
-          </Routes>
-        </Box>
-        </div>
-      )}
+      <Navbar 
+        isAuthenticated={!!token}
+        tokenData={tokenData}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+      />
+      
+      <div className="pt-20">
+        <Routes>
+          <Route path="/" element={<HomePage isAuthenticated={!!token} />} />
+          
+          <Route path="/all-activities" element={
+            token ? <AllActivities /> : <Navigate to="/" replace/>
+          }/>
+          
+          <Route path="/complete-recommendation" element={
+            token ? (
+              <CompleteRecommendation 
+                userId={tokenData?.sub}
+                token={token}
+              />
+            ) : <Navigate to="/" replace/>
+          }/>
+          
+          <Route path="/activities/:id" element={
+            token ? (
+              <div className="min-h-screen bg-gray-900 py-8 px-4">
+                <ActivityDetail />
+              </div>
+            ) : <Navigate to="/" replace/>
+          }/>
+        </Routes>
+      </div>
     </Router>
   )
 }

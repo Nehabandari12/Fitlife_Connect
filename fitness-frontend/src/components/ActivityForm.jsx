@@ -1,6 +1,4 @@
-
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material'
-import React, { act, useState } from 'react'
+import React, { useState } from 'react'
 import { addActivity } from '../services/api';
 
 const ActivityForm = ({ onActivityAdded }) => {
@@ -10,48 +8,160 @@ const ActivityForm = ({ onActivityAdded }) => {
     additionalMetrics: {}
   });
 
+  const [errors, setErrors] = useState({
+    duration: '',
+    caloriesBurned: ''
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate before submitting
+    if (!isFormValid()) {
+      return;
+    }
+
     try {
       await addActivity(activity);
       onActivityAdded();
       setActivity({
-    type: "RUNNING", duration: '', caloriesBurned: '',
-    additionalMetrics: {}
-  });
+        type: "RUNNING", duration: '', caloriesBurned: '',
+        additionalMetrics: {}
+      });
+      setErrors({
+        duration: '',
+        caloriesBurned: ''
+      });
     } catch (error) {
       console.error(error);
     }
   }
 
+  const isFormValid = () => {
+    return (
+      activity.type &&
+      activity.duration &&
+      activity.duration > 0 &&
+      activity.caloriesBurned &&
+      activity.caloriesBurned > 0
+    );
+  }
+
+  const handleDurationChange = (e) => {
+    const value = e.target.value;
+    setActivity({...activity, duration: value});
+    
+    if (value && value <= 0) {
+      setErrors({...errors, duration: 'Duration must be greater than 0'});
+    } else if (value && value > 1440) {
+      setErrors({...errors, duration: 'Duration cannot exceed 24 hours (1440 minutes)'});
+    } else {
+      setErrors({...errors, duration: ''});
+    }
+  }
+
+  const handleCaloriesChange = (e) => {
+    const value = e.target.value;
+    setActivity({...activity, caloriesBurned: value});
+    
+    if (value && value <= 0) {
+      setErrors({...errors, caloriesBurned: 'Calories must be greater than 0'});
+    } else if (value && value > 10000) {
+      setErrors({...errors, caloriesBurned: 'Calories seem too high. Please check.'});
+    } else {
+      setErrors({...errors, caloriesBurned: ''});
+    }
+  }
+
   return (
-    <Box component="form" sx={{ mb: 2 }} onSubmit={handleSubmit}>
-      <FormControl>
-        <InputLabel>Activity Type</InputLabel>
-        <Select sx={{ mb: 2 }}
+    <form onSubmit={handleSubmit} className="mb-8">
+      <div className="mb-4">
+        <label className="block text-white text-sm font-medium mb-2">
+          Activity Type <span className="text-red-400">*</span>
+        </label>
+        <select 
           value={activity.type}
-          onChange={(e) => setActivity({...activity, type: e.target.value})}>
-            <MenuItem value="RUNNING">Running</MenuItem>
-            <MenuItem value="WALKING">Walking</MenuItem>
-            <MenuItem value="CYCLING">Cycling</MenuItem>
-          </Select>
-      </FormControl>
-      <TextField fullWidth
-        label="Duration (Minutes)"
-        type='number'
-        sx={{mb: 2}}
-        value={activity.duration}
-        onChange={(e) => setActivity({...activity, duration: e.target.value})}/>
+          onChange={(e) => setActivity({...activity, type: e.target.value})}
+          className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
+          required
+        >
+          <option value="RUNNING">Running</option>
+          <option value="WALKING">Walking</option>
+          <option value="CYCLING">Cycling</option>
+          <option value="SWIMMING">SWIMMING</option>
+          <option value="WEIGHT_TRAINING">WEIGHT_TRAINING</option>
+          <option value="YOGA">YOGA</option>
+          <option value="HIIT">HIIT</option>
+          <option value="CARDIO">CARDIO</option>
+          <option value="STRETCHING">STRETCHING</option>
+          <option value="OTHER">OTHER</option>
+        </select>
+      </div>
 
-    <TextField fullWidth
-        label="Calories Burned"
-        type='number'
-        sx={{mb: 2}}
-        value={activity.caloriesBurned}
-        onChange={(e) => setActivity({...activity, caloriesBurned: e.target.value})}/>
+      <div className="mb-4">
+        <label className="block text-white text-sm font-medium mb-2">
+          Duration (Minutes) <span className="text-red-400">*</span>
+        </label>
+        <input 
+          type="number"
+          value={activity.duration}
+          onChange={handleDurationChange}
+          className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition ${
+            errors.duration 
+              ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
+              : 'border-gray-600 focus:border-blue-500 focus:ring-blue-500/20'
+          }`}
+          placeholder="Enter duration in minutes"
+          min="1"
+          max="1440"
+          required
+        />
+        {errors.duration && (
+          <p className="text-red-400 text-sm mt-1">{errors.duration}</p>
+        )}
+      </div>
 
-      <Button type='submit' variant='contained'>Add Activity</Button>
-    </Box>
+      <div className="mb-6">
+        <label className="block text-white text-sm font-medium mb-2">
+          Calories Burned <span className="text-red-400">*</span>
+        </label>
+        <input 
+          type="number"
+          value={activity.caloriesBurned}
+          onChange={handleCaloriesChange}
+          className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition ${
+            errors.caloriesBurned 
+              ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
+              : 'border-gray-600 focus:border-blue-500 focus:ring-blue-500/20'
+          }`}
+          placeholder="Enter calories burned"
+          min="1"
+          max="10000"
+          required
+        />
+        {errors.caloriesBurned && (
+          <p className="text-red-400 text-sm mt-1">{errors.caloriesBurned}</p>
+        )}
+      </div>
+
+      <button 
+        type="submit"
+        disabled={!isFormValid() || errors.duration || errors.caloriesBurned}
+        className={`px-8 py-3 font-medium rounded-lg transition transform ${
+          isFormValid() && !errors.duration && !errors.caloriesBurned
+            ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 active:scale-95 cursor-pointer'
+            : 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-60'
+        }`}
+      >
+        Add Activity
+      </button>
+
+      {!isFormValid() && (
+        <p className="text-gray-400 text-sm mt-3">
+          * Please fill in all required fields to add an activity
+        </p>
+      )}
+    </form>
   )
 }
 
