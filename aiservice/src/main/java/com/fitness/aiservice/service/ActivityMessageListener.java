@@ -21,6 +21,17 @@ public class ActivityMessageListener {
     public void processActivity(Activity activity) {
         log.info("Received Activity for processing: {}", activity.getUserId());
         Recommendation recommendation = activityAIService.generateRecommendation(activity);
-        recommendationRepository.save(recommendation);
+        recommendationRepository.findByActivityId(activity.getId())
+                .ifPresentOrElse(existing -> {
+                    // 🔄 update existing recommendation
+                    existing.setRecommendation(recommendation.getRecommendation());
+                    existing.setImprovements(recommendation.getImprovements());
+                    existing.setSuggestions(recommendation.getSuggestions());
+                    existing.setSafety(recommendation.getSafety());
+                    existing.setCreatedAt(recommendation.getCreatedAt());
+                    recommendationRepository.save(existing);
+                }, () -> {
+                    recommendationRepository.save(recommendation);
+                });
     }
 }

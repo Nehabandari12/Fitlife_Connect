@@ -23,6 +23,9 @@ public class ActivityService {
     @Value("${kafka.topic.name}")
     private String topicName;
 
+    @Value("${kafka.topic.delete-name}")
+    private String deleteTopicName;
+
     public ActivityResponse trackActivity(ActivityRequest request) {
 
         boolean isValidUser = userValidationService.validateUser(request.getUserId());
@@ -74,5 +77,61 @@ public class ActivityService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+
+    public void deleteActivity(String activityId, String userId) {
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new RuntimeException("Activity not found: " + activityId));
+
+        // simple ownership check
+        if (!activity.getUserId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to delete this activity");
+        }
+
+        // 1) delete from activity DB
+        activityRepository.delete(activity);
+
+        // 2) send delete-event to Kafka (AI service will clean up recommendation)
+        try {
+            kafkaTemplate.send(deleteTopicName, activity.getId(), activity);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public ActivityResponse updateActivity(String activityId, ActivityRequest request) {
+        Activity existing = activityRepository.findById(activityId)
+                .orElseThrow(() -> new RuntimeException("Activity not found"));
+
+        if (!existing.getUserId().equals(request.getUserId())) {
+            throw new RuntimeException("You cannot modify this activity");
+        }
+
+        // Update mutable fields
+        existing.setType(request.getType());
+        existing.setDuration(request.getDuration());
+        existing.setCaloriesBurned(request.getCaloriesBurned());
+        existing.setStartTime(request.getStartTime());
+        existing.setAdditionalMetrics(request.getAdditionalMetrics());
+
+        Activity updated = activityRepository.save(existing);
+
+        kafkaTemplate.send(topicName, updated.getUserId(), updated);
+
+        return mapToResponse(updated);
+    }
+
+    public ActivityResponse getActivityById(String activityId, String userId) {
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new RuntimeException("Activity not found: " + activityId));
+
+        // Optional but recommended: ensure this activity belongs to the logged-in user
+        if (!activity.getUserId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to view this activity");
+        }
+
+        return mapToResponse(activity);
+    }
+
 
 }

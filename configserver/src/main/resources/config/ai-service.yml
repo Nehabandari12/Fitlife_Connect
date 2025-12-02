@@ -22,6 +22,7 @@ gemini:
 kafka:
   topic:
     name: activity-events
+    delete-name: activity-delete-events
 
 eureka:
   client:

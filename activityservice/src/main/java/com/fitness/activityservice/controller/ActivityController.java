@@ -27,4 +27,32 @@ public class ActivityController {
     public ResponseEntity<List<ActivityResponse>> getUserActivities(@RequestHeader("X-User-ID") String userId) {
         return ResponseEntity.ok(activityService.getUserActivities(userId));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ActivityResponse> getActivityById(
+            @PathVariable String id,
+            @RequestHeader("X-User-ID") String userId) {
+        return ResponseEntity.ok(activityService.getActivityById(id, userId));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteActivity(
+            @PathVariable String id,
+            @RequestHeader("X-User-ID") String userId) {
+
+        activityService.deleteActivity(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ActivityResponse> updateActivity(
+            @PathVariable String id,
+            @RequestBody ActivityRequest request,
+            @RequestHeader("X-User-ID") String userId) {
+
+        request.setUserId(userId);
+        return ResponseEntity.ok(activityService.updateActivity(id, request));
+    }
+
+
 }
